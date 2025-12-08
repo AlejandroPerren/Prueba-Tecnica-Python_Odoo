@@ -24,58 +24,49 @@ class PaymentRequest(BaseModel):
     date: datetime
 
 
-# ----------------------------------------
-# FUNCIONES AUXILIARES
-# ----------------------------------------
-
-def get_journal(models, db, uid, pwd):
-    """Busca un diario usable en Odoo."""
-    preferred = ["cash", "bank", "general"]
-
-    for t in preferred:
-        journals = models.execute_kw(
-            db, uid, pwd,
-            "account.journal", "search_read",
-            [[["type", "=", t]]],
-            {"fields": ["id", "name", "type"], "limit": 1}
-        )
-        if journals:
-            return journals[0]["id"]
-
-    raise Exception("No usable journal found (cash/bank/general)")
-
-
-def get_account(models, db, uid, pwd, account_type):
+def get_account_by_code(models, db, uid, pwd, code):
     acc = models.execute_kw(
         db, uid, pwd,
         "account.account", "search_read",
-        [[["account_type", "=", account_type]]],
+        [[["code", "=", code]]],
         {"fields": ["id", "name"], "limit": 1}
     )
     if not acc:
-        raise Exception(f"No account found for type {account_type}")
+        raise Exception(f"Account with code {code} not found in Odoo.")
     return acc[0]["id"]
 
 
-# ----------------------------------------
-# ENDPOINT PRINCIPAL
-# ----------------------------------------
+def get_cash_journal(models, db, uid, pwd):
+    journal = models.execute_kw(
+        db, uid, pwd,
+        "account.journal", "search_read",
+        [[["type", "=", "cash"]]],
+        {"fields": ["id"], "limit": 1}
+    )
+    if not journal:
+        raise Exception("No cash journal found in Odoo.")
+    return journal[0]["id"]
+
 
 @app.post("/record-payment")
 def record_payment(data: PaymentRequest):
+    db = None
+    cursor = None
+    event_id = None
+
     try:
         # -----------------------------
-        # INSERT EVENT IN MYSQL
+        # START MYSQL TRANSACTION
         # -----------------------------
         db = mysql.connector.connect(**MYSQL_CONFIG)
         cursor = db.cursor()
+        db.start_transaction()
 
         cursor.execute("""
             INSERT INTO payment_events (amount, event_date, sync_status)
             VALUES (%s, %s, 'PENDING')
         """, (data.amount, data.date))
         event_id = cursor.lastrowid
-        db.commit()
 
         # -----------------------------
         # AUTHENTICATE ODOO
@@ -84,32 +75,32 @@ def record_payment(data: PaymentRequest):
         uid = common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
 
         if not uid:
-            raise Exception("Authentication to Odoo failed")
+            raise Exception("Authentication failed to Odoo.")
 
         models = xmlrpc.client.ServerProxy(f"{ODOO_URL}/xmlrpc/2/object")
 
         # -----------------------------
-        # GET JOURNAL + ACCOUNTS
+        # GET EXACT ACCOUNTS
         # -----------------------------
-        journal_id = get_journal(models, ODOO_DB, uid, ODOO_PASSWORD)
-        cash_account_id = get_account(models, ODOO_DB, uid, ODOO_PASSWORD, "asset_cash")
-        receivable_account_id = get_account(models, ODOO_DB, uid, ODOO_PASSWORD, "asset_receivable")
+        debit_acc = get_account_by_code(models, ODOO_DB, uid, ODOO_PASSWORD, "1105")  # Caja General
+        credit_acc = get_account_by_code(models, ODOO_DB, uid, ODOO_PASSWORD, "4105")  # Clientes Nacionales
+        journal_id = get_cash_journal(models, ODOO_DB, uid, ODOO_PASSWORD)
 
         # -----------------------------
-        # CREATE JOURNAL ENTRY IN ODOO
+        # CREATE MOVE IN ODOO
         # -----------------------------
         move_vals = {
             "journal_id": journal_id,
             "date": data.date.date().isoformat(),
             "line_ids": [
                 (0, 0, {
-                    "account_id": cash_account_id,
+                    "account_id": debit_acc,
                     "name": "Pago recibido",
                     "debit": data.amount,
                     "credit": 0,
                 }),
                 (0, 0, {
-                    "account_id": receivable_account_id,
+                    "account_id": credit_acc,
                     "name": "Pago recibido",
                     "debit": 0,
                     "credit": data.amount,
@@ -119,32 +110,30 @@ def record_payment(data: PaymentRequest):
 
         move_id = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
-            "account.move", "create",
-            [move_vals]
+            "account.move", "create", [move_vals]
         )
 
         # -----------------------------
-        # UPDATE MYSQL AS COMPLETED
+        # COMMIT SUCCESS
         # -----------------------------
         cursor.execute("""
             UPDATE payment_events
             SET sync_status = 'COMPLETED', odoo_move_id = %s
             WHERE event_id = %s
         """, (move_id, event_id))
+
         db.commit()
 
         return {"status": "success", "event_id": event_id, "odoo_move_id": move_id}
 
     except Exception as e:
-
-        # Set FAILED
-        try:
+        if db and cursor and event_id:
             cursor.execute("""
-                UPDATE payment_events SET sync_status = 'FAILED'
+                UPDATE payment_events
+                SET sync_status = 'FAILED'
                 WHERE event_id = %s
             """, (event_id,))
             db.commit()
-        except:
-            pass
 
         raise HTTPException(status_code=500, detail=str(e))
+
