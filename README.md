@@ -1,67 +1,29 @@
-# Prueba Técnica — FastAPI • MySQL • Odoo (Registro de Pago)
+# `Prueba-Tecnica-Python_Odoo`: Microservicio de Sincronización de Pagos con Odoo
 
-Esta prueba técnica consiste en desarrollar un microservicio con **FastAPI**, usando **MySQL** como base de datos local y **Odoo** como sistema contable externo.
+Este proyecto es un microservicio desarrollado con **FastAPI** que actúa como puente entre un sistema de procesamiento de pagos y **Odoo**, utilizando **MySQL** como base de datos local para registrar eventos.
 
-## 🎯 Objetivo del Sistema
-El servicio debe recibir un evento de **"Pago Recibido"** y ejecutar tres acciones:
+## 🎯 Objetivo Principal
 
-1. **Registrar en Odoo** un asiento contable (`account.move`) con:
-   - Línea de Débito → Cuenta **1105 (Caja General)**
-   - Línea de Crédito → Cuenta **4105 (Clientes Nacionales)**
+El objetivo del servicio es procesar eventos de "Pago Recibido" y realizar las siguientes acciones de forma coordinada:
 
-2. **Guardar localmente en MySQL** un evento en la tabla `payment_events` con:
-   - Monto del pago
-   - Fecha del evento
-   - Estado de sincronización (`PENDING`, `COMPLETED`, `FAILED`)
-   - ID del movimiento generado en Odoo (si existe)
+1.  **Registrar un Asiento Contable en Odoo:** Crea un `account.move` (asiento contable) con líneas de débito y crédito predefinidas en la instancia de Odoo configurada.
+2.  **Guardar Evento de Pago en MySQL:** Registra los detalles del pago en una tabla local `payment_events` en MySQL, incluyendo el monto, la fecha y el estado de sincronización.
+3.  **Actualizar el Estado de Sincronización:** El evento en MySQL se actualiza a `COMPLETED` si la operación en Odoo es exitosa, o a `FAILED` si ocurre algún error durante la comunicación con la API de Odoo.
 
-3. **Actualizar el estado** según el resultado:
-   - `COMPLETED` si Odoo responde correctamente
-   - `FAILED` si ocurre un error en la API de Odoo
+## 🏛 Arquitectura General
 
----
+La aplicación sigue una arquitectura limpia y modular:
 
-## 🗃 Tabla MySQL Requerida (`payment_events`)
+*   **FastAPI:** Proporciona la interfaz RESTful para recibir los eventos de pago.
+*   **Servicios (Services):** Contienen la lógica de negocio y encapsulan las interacciones con sistemas externos (Odoo) y la base de datos local (MySQL).
+*   **Modelos (Models):** Definen la estructura de datos para la base de datos MySQL (SQLAlchemy ORM).
+*   **Esquemas (Schemas):** Definen la estructura de los datos de entrada y salida de la API (Pydantic).
+*   **Configuración (Config):** Centraliza la gestión de las variables de entorno.
 
-La prueba exige una tabla minimalista con:
+## 🚀 Cómo Empezar
 
-- `event_id` (INT, PK, AUTO_INCREMENT)
-- `amount` (DECIMAL)
-- `event_date` (DATETIME)
-- `odoo_move_id` (INT, NULLABLE)
-- `sync_status` (ENUM: `PENDING`, `COMPLETED`, `FAILED`)
+Para poner en marcha este proyecto, elige la opción que mejor se adapte a tu entorno:
 
-El repositorio incluye el archivo SQL para crearla.
-
----
-
-## 📌 Endpoint Solicitado
-
-### `POST /record-payment`
-
-Debe recibir un JSON con:
-
-```json
-{
-  "amount": 123.45,
-  "date": "2025-01-15T12:00:00"
-}
-
-Y ejecutar todo el flujo:
-
-Guardar evento como PENDING
-
-Enviar asiento contable a Odoo mediante XML-RPC
-
-Actualizar estado y guardar odoo_move_id
-
-📦 Entregables Requeridos
-
-El repositorio incluye:
-
-✔ Script SQL con la creación de payment_events
-✔ Código FastAPI con el endpoint /record-payment
-✔ Lógica para conectar a Odoo (XML-RPC)
-✔ Lógica para registrar y actualizar el evento en MySQL
-✔ Documentación de cuentas requeridas en Odoo
-✔ Instrucciones para ejecutar pruebas y verificar resultados
+*   **Configuración Específica de Odoo:** Si necesitas saber qué configurar en tu instancia de Odoo para que la aplicación funcione, consulta [README_ODOO.md](./README_ODOO.md).
+*   **Ejecución Local (sin Docker):** Si prefieres configurar y ejecutar la aplicación directamente en tu máquina local, consulta [README_LOCAL.md](./README_LOCAL.md).
+*   **Despliegue con Docker Compose:** Para una configuración más sencilla y portable utilizando contenedores Docker, consulta [README_DOCKER.md](./README_DOCKER.md).
