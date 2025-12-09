@@ -8,7 +8,7 @@ from src.schemas.payment import PaymentRequest, PaymentResponse, TicketResponse
 from src.db.session import get_db
 from src.services.db_service import DBService
 from src.services.payment_service import PaymentService # Import the new PaymentService class
-
+from src.services.odoo_service import OdooService
 
 app = FastAPI()
 

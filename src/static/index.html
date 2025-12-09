@@ -20,7 +20,8 @@
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
@@ -77,12 +78,14 @@
                     throw new Error("API error: " + res.status);
                 }
 
-                const tickets = await res.json();
+                const data = await res.json();
+                const tickets = data.tickets;
 
                 if (!Array.isArray(tickets)) {
-                    console.error("API returned invalid data:", tickets);
+                    console.error("API returned invalid data:", data);
                     return;
                 }
+
 
                 // Clear existing rows
                 ticketsTable.innerHTML = "";
@@ -143,4 +146,5 @@
     </script>
 
 </body>
+
 </html>
