@@ -1,31 +1,44 @@
-# technical_test_odoo/services/db_service.py
-import mysql.connector
-from src.config import settings
+from sqlalchemy.orm import Session
+from datetime import datetime
+from src.models.payment import PaymentEvent
+from typing import List
 
-def get_db_connection():
-    """Establishes a new database connection."""
-    return mysql.connector.connect(**settings.MYSQL_CONFIG)
+class DBService:
+    def __init__(self, db: Session):
+        self.db = db
 
-def create_payment_event(cursor, amount, date):
-    """Inserts a new payment event with a 'PENDING' status."""
-    cursor.execute("""
-        INSERT INTO payment_events (amount, event_date, sync_status)
-        VALUES (%s, %s, 'PENDING')
-    """, (amount, date))
-    return cursor.lastrowid
+    def create_payment_event(self, amount: float, date: datetime) -> PaymentEvent:
+        """Inserts a new payment event with a 'PENDING' status."""
+        new_event = PaymentEvent(
+            amount=amount,
+            event_date=date,
+            sync_status='PENDING'
+        )
+        self.db.add(new_event)
+        self.db.commit()
+        self.db.refresh(new_event)
+        return new_event
 
-def update_payment_event_success(cursor, event_id, odoo_move_id):
-    """Updates a payment event to 'COMPLETED'."""
-    cursor.execute("""
-        UPDATE payment_events
-        SET sync_status = 'COMPLETED', odoo_move_id = %s
-        WHERE event_id = %s
-    """, (odoo_move_id, event_id))
+    def update_payment_event_success(self, event_id: int, odoo_move_id: int) -> PaymentEvent:
+        """Updates a payment event to 'COMPLETED'."""
+        event = self.db.query(PaymentEvent).filter(PaymentEvent.event_id == event_id).one()
+        event.sync_status = 'COMPLETED'
+        event.odoo_move_id = odoo_move_id
+        self.db.commit()
+        self.db.refresh(event)
+        return event
 
-def update_payment_event_failed(cursor, event_id):
-    """Updates a payment event to 'FAILED'."""
-    cursor.execute("""
-        UPDATE payment_events
-        SET sync_status = 'FAILED'
-        WHERE event_id = %s
-    """, (event_id,))
+    def update_payment_event_failed(self, event_id: int) -> PaymentEvent:
+        """Updates a payment event to 'FAILED'."""
+        event = self.db.query(PaymentEvent).filter(PaymentEvent.event_id == event_id).one()
+        event.sync_status = 'FAILED'
+        self.db.commit()
+        self.db.refresh(event)
+        return event
+
+    def get_all_payment_events(self) -> List[PaymentEvent]:
+        """Retrieves all payment events."""
+        return self.db.query(PaymentEvent).order_by(PaymentEvent.event_id.desc()).all()
+
+# This service is stateful (depends on a session), so we don't create a singleton instance here.
+# It will be instantiated per request using FastAPI's dependency injection.

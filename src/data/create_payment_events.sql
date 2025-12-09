@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS CREATE TABLE payment_events (
+CREATE TABLE IF NOT EXISTS payment_events (
     event_id INT AUTO_INCREMENT PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     event_date DATETIME NOT NULL,
