@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tickets</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Tickets</h1>
+
+    <form id="payment-form">
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" name="amount" step="0.01" required>
+        <button type="submit">Create Payment</button>
+    </form>
+
+    <hr>
+
+    <button id="refresh-btn">Refresh Tickets</button>
+
+    <table id="tickets-table">
+        <thead>
+            <tr>
+                <th>Event ID</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Odoo Move ID</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const ticketsTable = document
+            .getElementById('tickets-table')
+            .getElementsByTagName('tbody')[0];
+
+        const refreshBtn = document.getElementById('refresh-btn');
+        const paymentForm = document.getElementById('payment-form');
+
+        // -------------------------------
+        // GET TICKETS FROM API
+        // -------------------------------
+        async function getTickets() {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/tickets");
+
+                if (!res.ok) {
+                    throw new Error("API error: " + res.status);
+                }
+
+                const tickets = await res.json();
+
+                if (!Array.isArray(tickets)) {
+                    console.error("API returned invalid data:", tickets);
+                    return;
+                }
+
+                // Clear existing rows
+                ticketsTable.innerHTML = "";
+
+                // Render tickets
+                tickets.forEach(ticket => {
+                    const row = ticketsTable.insertRow();
+
+                    row.insertCell(0).textContent = ticket.event_id;
+                    row.insertCell(1).textContent = ticket.amount;
+                    row.insertCell(2).textContent =
+                        new Date(ticket.event_date).toLocaleString();
+                    row.insertCell(3).textContent = ticket.sync_status;
+                    row.insertCell(4).textContent =
+                        ticket.odoo_move_id === null ? "-" : ticket.odoo_move_id;
+                });
+
+            } catch (err) {
+                console.error("Error fetching tickets:", err);
+                alert("Error loading tickets: " + err.message);
+            }
+        }
+
+        // -------------------------------
+        // CREATE PAYMENT
+        // -------------------------------
+        async function createPayment(event) {
+            event.preventDefault();
+
+            const amount = parseFloat(document.getElementById('amount').value);
+            const date = new Date().toISOString();
+
+            try {
+                const response = await fetch("/record-payment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ amount, date })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail);
+                }
+
+                paymentForm.reset();
+                getTickets();
+
+            } catch (error) {
+                console.error("Error creating payment:", error);
+                alert("Error creating payment: " + error.message);
+            }
+        }
+
+        refreshBtn.addEventListener("click", getTickets);
+        paymentForm.addEventListener("submit", createPayment);
+
+        getTickets();
+    </script>
+
+</body>
+</html>

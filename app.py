@@ -1,4 +1,3 @@
-# app.py
 import uvicorn
 from src.controllers.main import app
 

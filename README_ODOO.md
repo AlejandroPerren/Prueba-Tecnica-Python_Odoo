@@ -1,5 +1,27 @@
 # Configuración Específica de Odoo para `Prueba-Tecnica-Python_Odoo`
+⚠️ Importante sobre la versión de Odoo
 
+Para que esta integración funcione correctamente, es obligatorio utilizar una versión de Odoo que incluya el módulo Accounting / Contabilidad.
+
+En Odoo Community Edition, el módulo Accounting está limitado y no permite usar todas las funcionalidades necesarias (como asientos contables completos, diarios bancarios avanzados, conciliaciones, etc.).
+
+Por lo tanto, para esta prueba técnica se requiere:
+
+✔️ Odoo Enterprise o Odoo Online (Business)
+
+Estas versiones incluyen el módulo de Contabilidad Completa, necesario para:
+
+Crear account.move
+
+Crear account.move.line
+
+Usar diarios de tipo cash/bank
+
+Acceder a cuentas contables completas
+
+Registrar pagos reales y conciliaciones
+
+En resumen: Odoo Community no es suficiente para ejecutar esta integración. Necesitás Odoo Enterprise (local o Docker) o Odoo Business (Online).
 Este documento detalla la configuración necesaria dentro de tu instancia de Odoo para que la aplicación `Prueba-Tecnica-Python_Odoo` funcione correctamente.
 
 La aplicación interactúa con Odoo para crear asientos contables de "Pago Recibido" utilizando XML-RPC.
