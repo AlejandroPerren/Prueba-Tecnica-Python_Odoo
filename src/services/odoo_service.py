@@ -1,47 +1,60 @@
-# technical_test_odoo/services/odoo_service.py
 import xmlrpc.client
+from functools import lru_cache
 from src.config import settings
 
-def get_odoo_uid():
-    """Authenticate with Odoo and return the user ID."""
-    common = xmlrpc.client.ServerProxy(f"{settings.ODOO_URL}/xmlrpc/2/common")
-    uid = common.authenticate(settings.ODOO_DB, settings.ODOO_USER, settings.ODOO_PASSWORD, {})
-    if not uid:
-        raise Exception("Authentication failed to Odoo.")
-    return uid
+class OdooService:
+    def __init__(self, settings):
+        self.url = settings.ODOO_URL
+        self.db = settings.ODOO_DB
+        self.user = settings.ODOO_USER
+        self.password = settings.ODOO_PASSWORD
+        
+        try:
+            common = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/common")
+            self.uid = common.authenticate(self.db, self.user, self.password, {})
+            if not self.uid:
+                raise ConnectionAbortedError("Authentication failed to Odoo.")
+            self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
+        except Exception as e:
+            # Wrap lower-level exceptions into a more specific one
+            raise ConnectionError(f"Failed to connect to Odoo: {e}") from e
 
-def get_odoo_models_proxy():
-    """Return the Odoo models proxy."""
-    return xmlrpc.client.ServerProxy(f"{settings.ODOO_URL}/xmlrpc/2/object")
+    def get_account_id_by_code(self, code: str) -> int:
+        """Fetch an account ID from Odoo by its code."""
+        account_ids = self.models.execute_kw(
+            self.db, self.uid, self.password,
+            "account.account", "search_read",
+            [[["code", "=", code]]],
+            {"fields": ["id"], "limit": 1}
+        )
+        if not account_ids:
+            raise ValueError(f"Account with code {code} not found in Odoo.")
+        return account_ids[0]["id"]
 
-def get_account_id_by_code(models, db, uid, pwd, code):
-    """Fetch an account ID from Odoo by its code."""
-    account_ids = models.execute_kw(
-        db, uid, pwd,
-        "account.account", "search_read",
-        [[["code", "=", code]]],
-        {"fields": ["id"], "limit": 1}
-    )
-    if not account_ids:
-        raise Exception(f"Account with code {code} not found in Odoo.")
-    return account_ids[0]["id"]
+    def get_cash_journal_id(self) -> int:
+        """Fetch the first cash journal ID from Odoo."""
+        journal_ids = self.models.execute_kw(
+            self.db, self.uid, self.password,
+            "account.journal", "search_read",
+            [[["type", "=", "cash"]]],
+            {"fields": ["id"], "limit": 1}
+        )
+        if not journal_ids:
+            raise ValueError("No cash journal found in Odoo.")
+        return journal_ids[0]["id"]
 
-def get_cash_journal_id(models, db, uid, pwd):
-    """Fetch the first cash journal ID from Odoo."""
-    journal_ids = models.execute_kw(
-        db, uid, pwd,
-        "account.journal", "search_read",
-        [[["type", "=", "cash"]]],
-        {"fields": ["id"], "limit": 1}
-    )
-    if not journal_ids:
-        raise Exception("No cash journal found in Odoo.")
-    return journal_ids[0]["id"]
+    def create_account_move(self, move_vals: dict) -> int:
+        """Create a new account move in Odoo."""
+        move_id = self.models.execute_kw(
+            self.db, self.uid, self.password,
+            "account.move", "create", [move_vals]
+        )
+        return move_id
 
-def create_account_move(models, db, uid, pwd, move_vals):
-    """Create a new account move in Odoo."""
-    move_id = models.execute_kw(
-        db, uid, pwd,
-        "account.move", "create", [move_vals]
-    )
-    return move_id
+@lru_cache()
+def get_odoo_service():
+    return OdooService(settings)
+
+# For dependency injection, you might want to have a single instance.
+# This approach provides a cached function that returns the same instance.
+odoo_service_instance = get_odoo_service()

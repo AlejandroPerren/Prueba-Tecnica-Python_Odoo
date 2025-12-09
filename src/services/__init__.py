@@ -1,2 +1,1 @@
-from . import db_service
-from . import odoo_service
+from .odoo_service import odoo_service_instance as odoo_service
