@@ -7,16 +7,23 @@ from src.services import odoo_service
 from src.schemas.payment import PaymentRequest, PaymentResponse, TicketResponse
 from src.db.session import get_db
 from src.services.db_service import DBService
-from src.services.payment_service import PaymentService # Import the new PaymentService class
+from src.services.payment_service import (
+    PaymentService,
+)  
 from src.services.odoo_service import OdooService
+from src.config import setup_cors
 
 app = FastAPI()
+
+setup_cors(app)
 
 
 # Dependency to get PaymentService instance
 def get_payment_service(
     db: Session = Depends(get_db),
-    odoo: OdooService = Depends(lambda: odoo_service) # odoo_service is already a singleton instance
+    odoo: OdooService = Depends(
+        lambda: odoo_service
+    ),  # odoo_service is already a singleton instance
 ) -> PaymentService:
     db_service_instance = DBService(db)
     return PaymentService(db_service=db_service_instance, odoo_service=odoo)
@@ -39,11 +46,9 @@ def get_tickets(db: Session = Depends(get_db)):
 
 @app.post("/record-payment", response_model=PaymentResponse)
 def record_payment(
-    data: PaymentRequest,
-    payment_service: PaymentService = Depends(get_payment_service)
+    data: PaymentRequest, payment_service: PaymentService = Depends(get_payment_service)
 ):
     try:
         return payment_service.process_payment(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

@@ -2,62 +2,213 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tickets</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payments Dashboard</title>
+
     <style>
+        :root {
+            --bg: #0f172a;          
+            --panel: #111827;      
+            --card: #020617;        
+            --text: #e5e7eb;       
+            --muted: #9ca3af;       
+            --border: #1f2937;     
+            --accent: #38bdf8;      
+            --success: #22c55e;      
+            --warning: #f59e0b;      
+            --danger: #ef4444;      
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: sans-serif;
-            margin: 2rem;
+            margin: 0;
+            padding: 2rem;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, var(--bg), #020617);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
         }
 
         h1 {
             text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            letter-spacing: 0.5px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--panel), var(--card));
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
+
+        form {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        input[type="number"] {
+            background: #020617;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text);
+            min-width: 160px;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        button {
+            background: var(--accent);
+            color: #020617;
+            border: none;
+            border-radius: 8px;
+            padding: 0.65rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.05s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+            box-shadow: 0 6px 16px rgba(56, 189, 248, 0.35);
+        }
+
+        button.secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            box-shadow: none;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            background: #020617;
+            border-radius: 12px;
+            overflow: hidden;
         }
 
         th,
         td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            padding: 0.75rem 0.85rem;
+            border-bottom: 1px solid var(--border);
             text-align: left;
+            font-size: 0.9rem;
         }
 
         th {
-            background-color: #f2f2f2;
+            background: #020617;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status {
+            font-weight: 600;
+        }
+
+        .status.COMPLETED {
+            color: var(--success);
+        }
+
+        .status.PENDING {
+            color: var(--warning);
+        }
+
+        .status.FAILED {
+            color: var(--danger);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: var(--muted);
+            font-size: 0.8rem;
         }
     </style>
 </head>
 
 <body>
-    <h1>Tickets</h1>
+    <div class="container">
+        <h1>Payments / Tickets</h1>
 
-    <form id="payment-form">
-        <label for="amount">Amount:</label>
-        <input type="number" id="amount" name="amount" step="0.01" required>
-        <button type="submit">Create Payment</button>
-    </form>
+        <div class="card">
+            <form id="payment-form">
+                <div>
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required />
+                </div>
+                <button type="submit">Create Payment</button>
+            </form>
+        </div>
 
-    <hr>
+        <div class="card">
+            <div class="actions">
+                <h2 style="margin: 0; font-size: 1.1rem">Tickets</h2>
+                <button id="refresh-btn" class="secondary">Refresh</button>
+            </div>
 
-    <button id="refresh-btn">Refresh Tickets</button>
+            <table id="tickets-table">
+                <thead>
+                    <tr>
+                        <th>Event ID</th>
+                        <th>Amount</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Odoo Move ID</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-    <table id="tickets-table">
-        <thead>
-            <tr>
-                <th>Event ID</th>
-                <th>Amount</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Odoo Move ID</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+        <footer>
+            FastAPI · MySQL · Odoo integration demo
+        </footer>
+    </div>
 
     <script>
         const ticketsTable = document
@@ -72,7 +223,7 @@
         // -------------------------------
         async function getTickets() {
             try {
-                const res = await fetch("http://127.0.0.1:8000/tickets");
+                const res = await fetch("/tickets");
 
                 if (!res.ok) {
                     throw new Error("API error: " + res.status);
@@ -86,23 +237,21 @@
                     return;
                 }
 
-
-                // Clear existing rows
                 ticketsTable.innerHTML = "";
 
-                // Render tickets
                 tickets.forEach(ticket => {
                     const row = ticketsTable.insertRow();
 
                     row.insertCell(0).textContent = ticket.event_id;
                     row.insertCell(1).textContent = ticket.amount;
-                    row.insertCell(2).textContent =
-                        new Date(ticket.event_date).toLocaleString();
-                    row.insertCell(3).textContent = ticket.sync_status;
-                    row.insertCell(4).textContent =
-                        ticket.odoo_move_id === null ? "-" : ticket.odoo_move_id;
-                });
+                    row.insertCell(2).textContent = new Date(ticket.event_date).toLocaleString();
 
+                    const statusCell = row.insertCell(3);
+                    statusCell.textContent = ticket.sync_status;
+                    statusCell.classList.add('status', ticket.sync_status);
+
+                    row.insertCell(4).textContent = ticket.odoo_move_id ?? '-';
+                });
             } catch (err) {
                 console.error("Error fetching tickets:", err);
                 alert("Error loading tickets: " + err.message);
@@ -132,7 +281,6 @@
 
                 paymentForm.reset();
                 getTickets();
-
             } catch (error) {
                 console.error("Error creating payment:", error);
                 alert("Error creating payment: " + error.message);
@@ -144,7 +292,6 @@
 
         getTickets();
     </script>
-
 </body>
 
 </html>
