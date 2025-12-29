@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from src.config import settings
 from src.services import odoo_service
 from src.schemas.payment import PaymentRequest, PaymentResponse, TicketResponse
 from src.db.session import get_db
@@ -11,7 +10,7 @@ from src.services.payment_service import (
     PaymentService,
 )  
 from src.services.odoo_service import OdooService
-from src.config import setup_cors
+from src.config.settings import setup_cors
 
 app = FastAPI()
 
